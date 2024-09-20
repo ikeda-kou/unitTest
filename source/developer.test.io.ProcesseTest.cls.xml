@@ -1,0 +1,101 @@
+/// <b> [プロセス] Git更新・クラス取り込み・テスト実施 </b> : 2024/09/20 15:00 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.ProcesseTest Extends Ens.BusinessProcess [ ClassType = persistent ]
+{
+
+/// 次プロセス指定
+Property Target As %String(MAXLEN = 255);
+
+/// Gitリポジトリパス
+Property GitRootPath As %String(MAXLEN = 255);
+
+/// Git更新用バッチファイル
+Property GitUpdateBat As %String(MAXLEN = 255);
+
+/// UnitTestルートパス
+Property TestRootPath As %String(MAXLEN = 255);
+
+/// UnitTestパッケージ
+Property TestPackage As %String(MAXLEN = 100);
+
+/// UnitTestの第１引数
+Property TestSpeck As %String(MAXLEN = 100);
+
+/// SETTINGSパラメータ
+Parameter SETTINGS = "TestPackage:追加の設定,TestRootPath:追加の設定,GitRootPath:追加の設定,GitUpdateBat:追加の設定,Target:追加の設定:selector?context={Ens.ContextSearch/ProductionItems?targets=1&productionName=@productionId}";
+
+Method OnRequest(pRequest As Ens.Request, pResponse As Ens.Response) As %Status
+{
+	s sts = $$$OK
+	try {
+		i (..GitRootPath '= "")&&(..TestRootPath '= "")&&(..TestPackage '= ""){
+			// Gitの更新
+			$$$TRACE("GITの更新開始："_$zdt($now(),3,1,6)_" path:"_..GitRootPath)
+			s flg = $ZF(-100, "/shell", "call", ..GitUpdateBat)
+			$$$TRACE("GITの更新終了："_$zdt($now(),3,1,6)_" status:"_flg)
+
+			
+			// ファイルのインポートと配置
+			$$$TRACE("クラスの配置とインポート開始："_$zdt($now(),3,1,6))
+			$$$ThrowOnError( ##class(developer.test.io.Util).fileAction(..GitRootPath, ..TestRootPath, ..TestPackage) )
+			$$$TRACE("クラスの配置とインポート終了："_$zdt($now(),3,1,6))
+			
+
+			// テスト実施
+			$$$TRACE("ユニットテスト開始："_$zdt($now(),3,1,6))
+			$$$ThrowOnError( ##class(%UnitTest.Manager).RunTest( ..TestSpeck, "/nodelete") )
+			$$$TRACE("ユニットテスト終了："_$zdt($now(),3,1,6))
+
+			
+			// リクエスト
+			$$$TRACE("リクエスト(同期)")
+			s req = ##class(Ens.Request).%New()
+			$$$ThrowOnError( ..SendRequestSync(..Target, req, .res))
+			$$$TRACE("処理終了")
+
+		}else{
+			$$$TRACE("設定値の未設定")
+		}
+	}catch e {
+		s sts = e.AsStatus()
+	}
+
+	q sts
+}
+
+/// Handle a 'Response'
+Method OnResponse(request As %Library.Persistent, ByRef response As %Library.Persistent, callrequest As %Library.Persistent, callresponse As %Library.Persistent, pCompletionKey As %String) As %Status
+{
+	// Subclass responsibility
+	q $$$OK
+}
+
+Storage Default
+{
+<Data name="TestProcesseDefaultData">
+<Subscript>"TestProcesse"</Subscript>
+<Value name="1">
+<Value>Target</Value>
+</Value>
+<Value name="2">
+<Value>GitRootPath</Value>
+</Value>
+<Value name="3">
+<Value>TestRootPath</Value>
+</Value>
+<Value name="4">
+<Value>TestPackage</Value>
+</Value>
+<Value name="5">
+<Value>TestSpeck</Value>
+</Value>
+<Value name="6">
+<Value>GitUpdateBat</Value>
+</Value>
+</Data>
+<DefaultData>TestProcesseDefaultData</DefaultData>
+<Type>%Storage.Persistent</Type>
+}
+
+}

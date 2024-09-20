@@ -1,0 +1,164 @@
+/// <b> [プロセス] テスト結果検証用 </b> : 2024/09/20 14:56 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.ProcesseMain Extends Ens.BusinessProcess [ ClassType = persistent ]
+{
+
+/// オペレーション指定
+Property Target As %String(MAXLEN = 255);
+
+/// データ削除用プロセス
+Property tDelete As %String(MAXLEN = 255);
+
+/// メール送付モード
+Property sendMode As %Integer(DISPLAYLIST = ",エラー時のみ送付,常に送付", VALUELIST = ",0,1");
+
+/// ファイル出力先
+Property outputDir As %String(MAXLEN = 255);
+
+Property outputType As %Integer(DISPLAYLIST = ",html,csv,両方", VALUELIST = ",0,1,2") [ InitialExpression = 0 ];
+
+/// 処理時間比較
+Property ProcessTimeChk As %Boolean;
+
+/// 基本比率
+Property BaseTime As %Float [ InitialExpression = 2 ];
+
+/// SETTINGSパラメータ
+Parameter SETTINGS = "BaseTime:追加の設定,ProcessTimeChk:追加の設定,sendMode:追加の設定,outputType:追加の設定,outputDir:追加の設定,tDelete:追加の設定:selector?context={Ens.ContextSearch/ProductionItems?targets=1&productionName=@productionId},Target:追加の設定:selector?context={Ens.ContextSearch/ProductionItems?targets=1&productionName=@productionId}";
+
+Method OnRequest(pRequest As Ens.Request, pResponse As Ens.Response) As %Status
+{
+	s sts = $$$OK
+	
+	#dim data as %Library.DynamicObject	
+	try {
+		// Unitテスト更新確認
+		$$$TRACE("ユニットテスト結果の取得")
+		s query = "select ID from %UnitTest_Result.TestInstance where ID > ?"
+		s stms = ##class(%SQL.Statement).%New()
+		$$$ThrowOnError(stms.%Prepare(query))
+		s rset = stms.%Execute( $g(^UnitTest.RowId, 0) )
+
+		s (list,id) = ""
+		while( rset.%Next(.sqlSts) ) {
+			s id = rset.ID
+			, $li(list, * + 1) = id
+		}
+		s:(id'="") ^UnitTest.RowId = id
+
+
+		i ($ll(list) = 0 ){
+			$$$TRACE("該当レコードなし")
+		}else{
+			$$$TRACE("調査対象:"_$lts(list))
+			
+			s (ptr, total) = 0
+			, dlm = $c(13,10,13,10)
+			, mailTxt = "【Unite Test Result】"
+			, fileList = ""
+			while($listNext(list, ptr, rowId)){
+				$$$TRACE("LogIndex:"_rowId)
+
+				// データ取得
+				s getDt = ##class(developer.test.io.Util).getData(rowId)
+
+				// 処理時刻比較
+				d:(..ProcessTimeChk) ##class(developer.test.io.Util).checkTime(getDt, ..BaseTime)
+
+				// ファイル作成
+				i (..outputType '= ""){
+					s filePath = ""
+					// HTMLファイル作成
+					i (..outputType '= 1) $$$ThrowOnError(##class(developer.test.io.CreateResult).html(getDt, ..outputDir, .filePath))
+					i (filePath'=""){
+						s ^UnitTest.htmlFile(rowId, $zdt($now(),3,1,6)) = filePath
+						, $li(fileList, *+1) = filePath
+						, filePath = ""
+					}
+					// CSVファイル作成
+					i (..outputType '= 0) $$$ThrowOnError(##class(developer.test.io.CreateResult).csv(getDt, ..outputDir, .filePath))
+					i (filePath'=""){
+						s ^UnitTest.htmlFile(rowId, $zdt($now(),3,1,6)) = filePath
+						, $li(fileList, *+1) = filePath
+					}
+				}
+				
+
+				// メール用データ作成
+				s mailDt = ##class(developer.test.io.Util).getMailData(getDt)
+				, suiteCnt = mailDt.testSuite.size()
+				, total = total + suiteCnt
+				d:(suiteCnt'=0)||(..sendMode) ##class(developer.test.io.Util).getMailText(mailDt, .mailTxt)
+				s mailTxt = mailTxt_dlm
+			}
+
+
+			// メール送付
+			i (total>0)||(..sendMode){
+				$$$TRACE(mailTxt)
+
+				s msg = ##class(developer.test.io.msg.MailRequest).%New()
+				, msg.AlertText = mailTxt
+				, msg.AlertTime = $zdt($h,3)
+				, msg.SessionId = $g($$$JobSessionId)
+				, msg.SourceConfigName = "【UnitTest】結果報告"
+				, msg.htmlFileList = $lts(fileList)
+				
+				$$$ThrowOnError( ..SendRequestAsync(..Target, msg) )
+			}
+		}
+
+		// 履歴の削除
+		$$$ThrowOnError( ..SendRequestAsync(..tDelete,##class(Ens.Request).%New()))
+	}catch e {
+		s sts = e.AsStatus()
+	}
+
+	q sts
+}
+
+/// Handle a 'Response'
+Method OnResponse(request As %Library.Persistent, ByRef response As %Library.Persistent, callrequest As %Library.Persistent, callresponse As %Library.Persistent, pCompletionKey As %String) As %Status
+{
+	// Subclass responsibility
+	q $$$OK
+}
+
+Storage Default
+{
+<Data name="UnitTestProcesseDefaultData">
+<Subscript>"UnitTestProcesse"</Subscript>
+<Value name="1">
+<Value>TargetOperation</Value>
+</Value>
+<Value name="2">
+<Value>DeleteProcesses</Value>
+</Value>
+<Value name="3">
+<Value>Target</Value>
+</Value>
+<Value name="4">
+<Value>tDelete</Value>
+</Value>
+<Value name="5">
+<Value>sendMode</Value>
+</Value>
+<Value name="6">
+<Value>outputDir</Value>
+</Value>
+<Value name="7">
+<Value>ProcessTimeChk</Value>
+</Value>
+<Value name="8">
+<Value>BaseTime</Value>
+</Value>
+<Value name="9">
+<Value>outputType</Value>
+</Value>
+</Data>
+<DefaultData>UnitTestProcesseDefaultData</DefaultData>
+<Type>%Storage.Persistent</Type>
+}
+
+}

@@ -1,0 +1,436 @@
+Include Ensemble
+
+/// <b> Interoperability用 </b> : 2024/09/20 15:12 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.Util
+{
+
+/// 処理時間の比較 : 2024/09/20 20:35 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>obj: ユニットテストデータ<class>%DynamicObject</class></li>
+///  <li>magn: 基本倍率<class>%Float</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%DynamicObject</class>
+ClassMethod checkTime(obj As %DynamicObject, magn As %Float = 1.5) As %DynamicObject
+{
+	s suiteItr = obj.testSuite.%GetIterator()
+	while suiteItr.%GetNext(.suiteKey, .suite) {
+		s caseItr = suite.testCase.%GetIterator()
+
+		while caseItr.%GetNext(.caseKey, .case) {
+			s methodItr = case.testMethod.%GetIterator()
+
+			while methodItr.%GetNext(.mthodKey, .method) {
+				s time = method.time
+				// 成功例のみサンプリング
+				i (method.status = "passed") {
+					i ('..avgMethodTime(case.name, method.name, time, magn) ){
+						// 処理時間超過
+						s method.status = "timeout"
+						, method.discription = ..getMedian(case.name, method.name)
+					}
+					d ..saveMethodTime(case.name, method.name, time)
+				}
+			}
+		}
+	}
+}
+
+/// テスト実行時間の登録 : 2024/09/20 20:06 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>clsNm: クラス名<class>%String</class></li>
+///  <li>methodNm: 関数名<class>%String</class></li>
+///  <li>time: テスト実行時間<class>%Float</class></li>
+/// </ul>
+ClassMethod saveMethodTime(clsNm As %String, methodNm As %String, time As %Float)
+{
+	s ^UnitTest.methodTime(clsNm, methodNm, time, $zdt($now(),3,,3))=""
+}
+
+/// 処理時間の比較 : 2024/09/20 08:39 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>clsNm: クラス名<class>%String</class></li>
+///  <li>methodNm: 関数名<class>%String</class></li>
+///  <li>time: 処理時間<class>%Float</class></li>
+///  <li>magn: 基本比率<class>%Float</class></li>
+/// </ul>
+/// Returns: 0:処理時間オーバー<br>
+///  <class>%Boolean</class>
+ClassMethod avgMethodTime(clsNm As %String, methodNm As %String, time As %Float, magn As %Float) As %Boolean
+{
+	q:'$d(^UnitTest.methodTime(clsNm, methodNm)) 1
+
+	s result = 0
+
+	s median = ..getMedian(clsNm, methodNm) // 中央値取得	
+
+	// 比較
+	s comTime = 0
+	// 加算
+	s addVal = $Parameter(clsNm, methodNm_"ADD")
+	s:(addVal '= "") comTime = median + addVal
+	// 乗算
+	s multiVal = $Parameter(clsNm, methodNm_"MUL")
+	s:(comTime=0)&&(multiVal '= "") comTime = median * multiVal
+	// 基本比率
+	s:(comTime=0) comTime = median * magn
+
+	q (time <= comTime)
+}
+
+/// 中央値取得 : 2024/09/20 15:15 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>clsNm: <class>%String</class></li>
+///  <li>methodNm: <class>%String</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%Float</class>
+ClassMethod getMedian(clsNm As %String, methodNm As %String) As %Float
+{
+	s median = 0
+
+	// 全体数取得
+	s (chkTime,chkDate) = "", cnt = 0
+	k ^||medianDt
+	f { s chkTime = $o(^UnitTest.methodTime(clsNm, methodNm, chkTime)) q:chkTime=""
+	f { s chkDate = $o(^UnitTest.methodTime(clsNm, methodNm, chkTime, chkDate)) q:chkDate=""
+		s cnt = cnt + 1, ^||medianDt(cnt)=chkTime
+	}}
+
+	// 中央値取得
+	s center = cnt\2
+	i (cnt#2){
+		// 奇数
+		s median = $g(^||medianDt( center+1 ))
+	}else{
+		// 偶数
+		s median = ( $g(^||medianDt(center)) + $g(^||medianDt(center+1)) ) / 2
+	}
+	k ^||medianDt
+
+	q median
+}
+
+/// メール返信用のネタ作成 : 2024/09/20 19:49 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>obj: テストデータ<class>%DynamicObject</class></li>
+///  <li>sendMode: 0:エラーのみ, 1:全て<class>%Integer</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%DynamicObject</class>
+ClassMethod getMailData(obj As %DynamicObject) As %DynamicObject
+{
+	// ディープコピー
+	s mailObj = {}.%FromJSON(obj.%ToJSON())
+
+	// TestSuite
+	s suiteItr = mailObj.testSuite.%GetIterator()
+	, suiteRemove = []
+	while suiteItr.%GetNext(.suiteKey, .suite) {
+		s caseItr = suite.testCase.%GetIterator()
+
+		// TestCase
+		s caseRemove = []
+		while caseItr.%GetNext(.caseKey, .case) {
+			s methodItr = case.testMethod.%GetIterator()
+
+			// TestMethod
+			s methodRemove = []
+			while methodItr.%GetNext(.mthodKey, .method) {
+				s assertsItr = method.testAsserts.%GetIterator()
+
+				// TestAsserts
+				s removeAsserts = []
+				while assertsItr.%GetNext(.assertsKey, .asserts) {
+					d:(asserts.status = "passed") removeAsserts.%Push(assertsKey)
+				}
+
+				d method.testAsserts.removeAll(removeAsserts)
+				d:(method.testAsserts.size() = 0) methodRemove.%Push(mthodKey) // 空になったら親を消す
+			}
+
+			d case.testMethod.removeAll(methodRemove)
+			d:(case.testMethod.size() = 0) caseRemove.%Push(caseKey) // 空になったら親を消す
+		}
+
+		d suite.testCase.removeAll(caseRemove)
+		d:(suite.testCase.size() = 0) suiteRemove.%Push(suiteKey) // 空になったら親を消す
+	}
+	d mailObj.testSuite.removeAll(suiteRemove)
+
+	q mailObj
+}
+
+/// メール用にテキスト作成 : 2024/09/20 15:17 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>obj: <class>%DynamicObject</class></li>
+///  <li>mailTxt: <class>%String</class></li>
+/// </ul>
+ClassMethod getMailText(obj As %DynamicObject, ByRef mailTxt As %String)
+{
+	s mailTxt = mailTxt_"◆LogIdx="_obj.logIdx_$c(13,10)
+	, dlm = ""
+	, endFlg = 0
+	, maxLen = 3000
+
+	// TestSuite
+	i ( obj.testSuite.size() = 0){
+		s mailTxt = mailTxt_"全てのテストは正常です。"
+	}else{
+		s suiteItr = obj.testSuite.%GetIterator()
+		, suiteRemove = []
+		while suiteItr.%GetNext(.suiteKey, .suite) {
+			s mailTxt = mailTxt_dlm_suite.name,dlm = $c(13,10)
+			, caseItr = suite.testCase.%GetIterator()
+			, caseLen = suite.testCase.size()
+
+			// TestCase
+			s caseRemove = []
+			, caseCnt = 0
+			while caseItr.%GetNext(.caseKey, .case) {
+				s caseCnt = caseCnt + 1
+				, caseBorder = ..getBorder2(caseCnt, caseLen)
+				, mailTxt = mailTxt_dlm_$$$FormatText("　%1 %2", ..getBorder(caseCnt,caseLen), case.name)
+				, methodItr = case.testMethod.%GetIterator()
+				, methodLen = case.testMethod.size()
+				
+
+				// TestMethod
+				s methodRemove = []
+				, methodCnt = 0
+				while methodItr.%GetNext(.mthodKey, .method) {
+					s methodCnt = methodCnt + 1
+					, methodBorder = ..getBorder2(methodCnt, methodLen)
+					, mailTxt = mailTxt_dlm_$$$FormatText("　　%1%2 %3(%4) %5", caseBorder, ..getBorder(methodCnt,methodLen),method.name,method.time, $s(method.status="timeout":method.status,1:""))
+					, assertsItr = method.testAsserts.%GetIterator()
+					, assertsLen = method.testAsserts.size()
+
+					// TestAsserts
+					s removeAsserts = []
+					, assertsCnt = 0
+					while assertsItr.%GetNext(.assertsKey, .asserts) {
+						s assertsCnt = assertsCnt + 1
+						, mailTxt = mailTxt_dlm_$$$FormatText("　　%1%2　%3 (%4) %5", caseBorder, methodBorder, ..getBorder(assertsCnt, assertsLen), asserts.status,asserts.action)
+
+						// 文字数が多い
+						i ($l(mailTxt)>maxLen){
+							s mailTxt = mailTxt_dlm_"※文字数が多い為。詳細はhmltファイルで確認してください。"
+							, endFlg = 1
+						}
+					}
+					s mailTxt = mailTxt_dlm_$$$FormatText("　　%1%2　", caseBorder, methodBorder)
+					q:(endFlg)
+				}
+				q:(endFlg)
+			}
+			q:(endFlg)
+		}
+	}
+}
+
+ClassMethod getBorder(cnt As %Integer, len As %Integer) As %String [ CodeMode = expression ]
+{
+$s(cnt = len: "┗", 1:"┣")
+}
+
+ClassMethod getBorder2(cnt As %Integer, len As %Integer) As %String [ CodeMode = expression ]
+{
+$s(cnt = len: "　", 1:"┃")
+}
+
+/// UnitTestのデータ取得 : 2024/09/20 19:50 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>rowId: LogIndex<class>%Integer</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%DynamicObject</class>
+ClassMethod getData(rowId As %Integer) As %DynamicObject
+{
+	#dim inst as %UnitTest.Result.TestInstance
+	#dim suite as %UnitTest.Result.TestSuite
+	#dim case as %UnitTest.Result.TestCase
+	#dim meth as %UnitTest.Result.TestMethod
+	#dim ass as %UnitTest.Result.TestAssert
+	#dim data as %Library.DynamicObject
+
+	s inst = ##class(%UnitTest.Result.TestInstance).%OpenId(rowId)
+	s data = {
+		"machine": (inst.MachineName),
+		"configuration": (inst.ConfigurationName),
+		"nameSpace": (inst.Namespace),
+		"version": (inst.Version),
+		"time": (inst.DateTime),
+		"logIdx": (inst.InstanceIndex),
+		"testSuite": []
+	}
+
+
+	//-----------------------------------------------------------------------------
+	// suite
+	s suiteKey = ""
+	f { s suite = inst.TestSuites.GetNext(.suiteKey) q:suiteKey=""
+		continue:('$IsObject(suite))
+		s suiteDt = ..getOjbect(suite, "testCase")
+		d data.testSuite.%Push(suiteDt)
+
+		//-----------------------------------------------------------------------------
+		// case
+		s caseKey = ""
+		f { s case = suite.TestCases.GetNext(.caseKey) q:caseKey=""
+			continue:('$IsObject(case))
+			s caseDt = ..getOjbect(case, "testMethod")
+			d suiteDt.testCase.%Push(caseDt)
+
+			//-----------------------------------------------------------------------------
+			// method
+			s methodKey = ""
+			f { s meth = case.TestMethods.GetNext(.methodKey) q:methodKey=""
+				continue:('$IsObject(meth))
+				s methDt = ..getOjbect(meth, "testAsserts")
+				d caseDt.testMethod.%Push(methDt)
+
+				//-----------------------------------------------------------------------------
+				// asserts
+				s assKey = ""
+				f { s ass = meth.TestAsserts.GetNext(.assKey) q:assKey=""
+					continue:('$IsObject(ass))
+					s assDt = {
+						"status": (..getStsTxt(ass.Status)),
+						"action": (ass.Action),
+						"discription": (ass.Description),
+						"location" : (ass.Location)
+					}
+					d methDt.testAsserts.%Push(assDt)
+
+
+					d meth.TestAsserts.%UnSwizzleAt(assKey)	
+				}
+
+				d case.TestMethods.%UnSwizzleAt(methodKey)
+			}
+
+			d suite.TestCases.%UnSwizzleAt(caseKey)
+		}
+
+		d inst.TestSuites.%UnSwizzleAt(suiteKey)			
+	}
+
+	q data
+}
+
+ClassMethod getOjbect(obj As %Persistent, aryNm As %String) As %DynamicObject
+{
+	s json = {
+		"status": (..getStsTxt(obj.Status)),
+		"name": (obj.Name),
+		"time": (obj.Duration),
+		"discription": (obj.ErrorDescription)
+	}
+	d json.%Set(aryNm, [])
+	q json
+}
+
+ClassMethod getStsTxt(status As %Integer) As %String [ CodeMode = expression ]
+{
+$case(status, 0:"failed", 1:"passed", :"skipped")
+}
+
+/// テストクラスの配置とクラスのインポート : 2024/09/20 15:21 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>gitPath: Gitローカルリポジトリのディレクトリパス<class>%String</class></li>
+///  <li>testPath: UnitTestのルートパス<class>%String</class></li>
+///  <li>packNm: テストクラスのパッケージ名<class>%String</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%Status</class>
+ClassMethod fileAction(gitPath As %String, testPath As %String, packNm As %String) As %Status
+{
+	s sts = $$$OK
+	try {
+		// テストフォルダ削除
+		i (##class(%File).DirectoryExists(testPath)){
+			$$$TRACE("ディレクトリ削除："_$zdt($now(),3,1,6))
+			s flg = ##class(%File).RemoveDirectoryTree(testPath)
+		}
+
+		s len = $l(packNm)
+
+		s stmt = ##class(%SQL.Statement).%New()
+  		s status = stmt.%PrepareClassQuery("%File", "FileSet")
+		s rset = stmt.%Execute(gitPath)
+		while(rset.%Next()){
+			continue:(rset.%Get("Type")'="F")
+
+			s filePath = rset.%Get("Name")
+			s fileNm = ##class(%File).GetFilename(filePath)
+
+			i ($e(fileNm,1,len) = packNm){
+				// テストルートに配置
+				s testNm = $e(fileNm, len+1, *)
+				, dirPath = testPath_"\"_$p(testNm,".",1)
+
+				i ('##class(%File).DirectoryExists(dirPath)){
+					// ディレクトリの作成
+					s flg = ##class(%File).CreateDirectoryChain(dirPath)
+				}
+
+				s newPath = dirPath_"\"_fileNm
+				s flg = ##class(%File).CopyFile(filePath, newPath) // ファイルの移動
+			}else{
+				// ファイルのインポートとコンパイル
+				$$$ThrowOnError( $SYSTEM.OBJ.Load(filePath, , .err) )
+			}
+		}
+		// コンパイル
+		$$$ThrowOnError( $SYSTEM.OBJ.CompileAll(, .err))
+	}catch e{
+		s sts = e.AsStatus()
+	}
+	q sts
+}
+
+/// 出力ファイルの削除 : 2024/09/20 14:45 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>rowId: <class>%Integer</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%Status</class>
+ClassMethod DeleteFile(rowId As %Integer) As %Status
+{
+	s sc = $$$OK
+	try {
+		s dt = ""
+		f { s dt = $o(^UnitTest.htmlFile(rowId, dt),1,filePath) q:dt=""
+			continue:(filePath="")
+			i (##class(%File).Exists(filePath)) {
+				i (##class(%File).Delete(filePath)){
+					$$$TRACE("削除ファイル："_filePath)
+					k ^UnitTest.htmlFile(rowId, dt)
+				}else{
+					h 1
+					i ('##class(%File).Delete(filePath)){
+						$$$LOGERROR("ファイルが削除できません。["_filePath_"]")
+					}else{
+						k ^UnitTest.htmlFile(rowId, dt)
+					}
+				}
+			}
+		}
+	}catch e{
+		s sc = e.AsStatus()
+	}
+	q sc
+}
+
+}

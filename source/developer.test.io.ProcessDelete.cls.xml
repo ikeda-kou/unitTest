@@ -1,0 +1,51 @@
+/// <b> [プロセス] 古いユニットテストデータと出力ファイルの削除 </b> : 2024/09/20 14:55 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.ProcessDelete Extends Ens.BusinessProcess [ ClassType = persistent ]
+{
+
+/// 保存期間
+Property DAYCOUNT As %Integer [ InitialExpression = 30 ];
+
+/// SETTINGSパラメータ
+Parameter SETTINGS = "DAYCOUNT:追加の設定";
+
+Method OnRequest(pRequest As Ens.Request, Output pResponse As Ens.Response) As %Status
+{
+	s sts = $$$OK
+	try {
+		s date = +$h - ..DAYCOUNT
+		s chkDT = $$$FormatText("%1 00:00:00",$zd(date, 3))
+		
+		// 対象クエリ取得	
+		s query = "select ID from %UnitTest_Result.TestInstance where DateTime < ?"
+		s rset = ##class(%SQL.Statement).%ExecDirect(, query, chkDT)
+		while( rset.%Next() ){
+			s rowId = rset.ID
+			$$$TRACE("削除対象ID:"_rowId)
+
+			// htmlファイル削除
+			$$$ThrowOnError( ##class(developer.test.io.Util).DeleteFile(rowId) )
+
+			// テスト結果削除
+			$$$ThrowOnError(##class(%UnitTest.Result.TestInstance).%DeleteId(rowId))
+		}
+	} catch e {
+		s sts = e.AsStatus()
+	}
+	q sts
+}
+
+Storage Default
+{
+<Data name="DeleteProcessDefaultData">
+<Subscript>"DeleteProcess"</Subscript>
+<Value name="1">
+<Value>DAYCOUNT</Value>
+</Value>
+</Data>
+<DefaultData>DeleteProcessDefaultData</DefaultData>
+<Type>%Storage.Persistent</Type>
+}
+
+}

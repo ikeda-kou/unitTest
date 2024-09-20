@@ -1,0 +1,43 @@
+/// <b> [メッセージ] オペレーション・メール送付用 </b> : 2024/09/20 14:26 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.msg.MailRequest Extends (%Persistent, Ens.AlertRequest)
+{
+
+/// htmlファイルリスト
+Property htmlFileList As %String(MAXLEN = "");
+
+Storage Default
+{
+<Data name="MailRequestDefaultData">
+<Value name="1">
+<Value>%%CLASSNAME</Value>
+</Value>
+<Value name="2">
+<Value>SourceConfigName</Value>
+</Value>
+<Value name="3">
+<Value>AlertText</Value>
+</Value>
+<Value name="4">
+<Value>AlertDestination</Value>
+</Value>
+<Value name="5">
+<Value>AlertTime</Value>
+</Value>
+<Value name="6">
+<Value>SessionId</Value>
+</Value>
+<Value name="7">
+<Value>htmlFileList</Value>
+</Value>
+</Data>
+<DataLocation>^developer.test72C4.MailRequestD</DataLocation>
+<DefaultData>MailRequestDefaultData</DefaultData>
+<IdLocation>^developer.test72C4.MailRequestD</IdLocation>
+<IndexLocation>^developer.test72C4.MailRequestI</IndexLocation>
+<StreamLocation>^developer.test72C4.MailRequestS</StreamLocation>
+<Type>%Storage.Persistent</Type>
+}
+
+}

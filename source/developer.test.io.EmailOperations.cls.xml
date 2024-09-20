@@ -1,0 +1,53 @@
+/// <b> [オペレーション] ユニットテスト結果メール送付 </b> : 2024/09/20 14:36 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.EmailOperations Extends Ens.BusinessOperation
+{
+
+Parameter ADAPTER = "EnsLib.EMail.OutboundAdapter";
+
+Property Adapter As EnsLib.EMail.OutboundAdapter;
+
+Property SMTPPassword As %String;
+
+/// SETTINGSパラメータ
+Parameter SETTINGS = "SMTPPassword";
+
+Method SendMail(pRequest As developer.test.io.msg.MailRequest, Output pResponse As Ens.Response) As %Status
+{
+	s sts = $$$OK
+	
+	try {
+		// htmlファイルを添付したメール送付
+		s obj = ##class(developer.test.io.EmailPython).%New()
+		, obj.SMTPServer = ..Adapter.SMTPServer
+		, obj.SMTPPort = ..Adapter.SMTPPort
+		, obj.SMTPPassword = ..SMTPPassword
+
+		, obj.From = ..Adapter.From
+		, obj.To = ..Adapter.Recipient
+		, obj.Cc = ..Adapter.Cc
+		
+		, obj.Title = pRequest.SourceConfigName
+		, obj.Message = pRequest.AlertText
+		, obj.HTMLFileList = pRequest.htmlFileList
+
+		s ret = obj.SendMail()
+		throw:(ret '= "") ##class(%Exception.General).%New("<Send Mail Error>","5002","SendMail+35^developer.test.io.EmailOperations",ret)
+
+	} catch e {
+		s sts = e.AsStatus()
+	}
+	q sts
+}
+
+XData MessageMap
+{
+<MapItems>
+	<MapItem MessageType="developer.test.io.msg.MailRequest"> 
+		<Method>SendMail</Method>
+	</MapItem>
+</MapItems>
+}
+
+}

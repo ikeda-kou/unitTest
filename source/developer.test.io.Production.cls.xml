@@ -1,0 +1,48 @@
+﻿/// <b> [プロダクション] </b> : 2024/09/20 15:02 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.Production Extends Ens.Production
+{
+
+XData ProductionDefinition
+{
+<Production Name="developer.test.io.Production" TestingEnabled="true" LogGeneralTraceEvents="true">
+  <Description></Description>
+  <ActorPoolSize>2</ActorPoolSize>
+  <Item Name="SendMail" Category="" ClassName="developer.test.io.EmailOperations" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Adapter" Name="SMTPPort"></Setting>
+    <Setting Target="Adapter" Name="SMTPServer"></Setting>
+    <Setting Target="Adapter" Name="From"></Setting>
+    <Setting Target="Adapter" Name="Recipient"></Setting>
+    <Setting Target="Host" Name="SMTPPassword"></Setting>
+  </Item>
+  <Item Name="ServiceRest" Category="" ClassName="developer.test.io.ServiceRest" PoolSize="0" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="Target">TestProcesse</Setting>
+  </Item>
+  <Item Name="ServiceTimer" Category="" ClassName="developer.test.io.ServiceTimer" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="Target">TestProcesse</Setting>
+    <Setting Target="Adapter" Name="CallInterval">1800</Setting>
+  </Item>
+  <Item Name="TestProcesse" Category="" ClassName="developer.test.io.ProcesseTest" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="Target">MainProcesse</Setting>
+    <Setting Target="Host" Name="GitRootPath"></Setting>
+    <Setting Target="Host" Name="TestPackage"></Setting>
+    <Setting Target="Host" Name="TestRootPath"></Setting>
+    <Setting Target="Host" Name="GitUpdateBat"></Setting>
+  </Item>
+  <Item Name="MainProcesse" Category="" ClassName="developer.test.io.ProcesseMain" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="ProcessTimeChk">1</Setting>
+    <Setting Target="Host" Name="Target">SendMail</Setting>
+    <Setting Target="Host" Name="outputDir"></Setting>
+    <Setting Target="Host" Name="sendMode">1</Setting>
+    <Setting Target="Host" Name="tDelete">DeleteProcess</Setting>
+    <Setting Target="Host" Name="outputType">2</Setting>
+    <Setting Target="Host" Name="BaseTime">2</Setting>
+  </Item>
+  <Item Name="DeleteProcess" Category="" ClassName="developer.test.io.ProcessDelete" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="DAYCOUNT">10</Setting>
+  </Item>
+</Production>
+}
+
+}

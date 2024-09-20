@@ -1,0 +1,186 @@
+Include Ensemble
+
+/// <b> テスト結果ファイル作成 </b> : 2024/09/20 20:38 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.CreateResult
+{
+
+/// 結果表示用のhtmlファイル作成 : 2024/09/20 18:10 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>obj: <class>%DynamicObject</class></li>
+///  <li>dir: <class>%String</class> (初期値："")</li>
+///  <li>filePath: <class>%String</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%Status</class>
+ClassMethod html(obj As %DynamicObject, dir As %String = "", ByRef filePath As %String) As %Status
+{
+	#dim fileObj as %File
+	s sts = $$$OK
+	try {
+		s filePath = ..getFileName(dir, obj.logIdx, "html")
+		$$$TRACE("HTMLファイルパス:"_filePath)
+
+		s fileObj = ##class(%File).%New(filePath)
+		$$$ThrowOnError(fileObj.Open("WSNK\UTF8\",3))
+
+		d fileObj.Write(..getHTML1())
+		, fileObj.Write(..getCSS())
+		, fileObj.WriteLine(..getHTML2())
+		, fileObj.Write(..getJS1())
+		
+		d fileObj.Write("const data=")
+		s lines = ##class(%Stream.GlobalCharacter).%New()
+		d obj.%ToJSON(lines)
+		d lines.Rewind()
+		while ('lines.AtEnd) {
+			s line = lines.ReadLine(1000, .sc, .eol)
+			$$$ThrowOnError(sc)
+			d fileObj.Write( line )
+		}
+		d fileObj.Write(";")
+
+		d fileObj.WriteLine(..getJS2())
+		, fileObj.Write($$$FormatText(..getHTML3(), obj.logIdx))
+
+		d fileObj.Close()
+	}catch e {
+		s sts = e.AsStatus()
+		w !,$system.Status.DisplayError(sts)
+	}
+
+	q sts
+}
+
+/// Webゲートウェイ/csp/sysのパスを取得する : 2024/09/20 20:18 : Creater Name<br/>
+/// Returns: <br>
+///  <class>%String</class>
+ClassMethod getDir() As %String
+{
+	new $namespace
+	s $namespace = "%SYS"
+
+	s rset = ##class(%SQL.Statement).%ExecDirect(,"select Path from Security.Applications where ID=?","/csp/sys")
+	q $s(rset.%Next(.sts): rset.%GetData(1)_"\unitTest", 1:"")
+}
+
+/// ファイル名称作成 : 2024/09/20 14:30 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>dir: <class>%String</class></li>
+///  <li>logInx: <class>%Integer</class></li>
+///  <li>ext: <class>%String</class> (初期値："html")</li>
+/// </ul>
+/// Returns: <br>
+///  <class>%String</class>
+ClassMethod getFileName(dir As %String, logInx As %Integer, ext As %String = "html") As %String
+{
+	// メインDATのフォルダ取得
+	s tgtDir = dir
+	s:(tgtDir = "")||('##class(%File).DirectoryExists(tgtDir)) tgtDir = ..getDir()
+
+	// フォルダ作成
+	i ('##class(%File).DirectoryExists(tgtDir)) {
+		i ('##class(%File).CreateDirectoryChain(tgtDir)){
+			h 1
+			i ('##class(%File).CreateDirectoryChain(tgtDir)){
+				$$$LOGERROR("フォルダが作成できません。["_tgtDir_"]")
+			}
+		}
+	}
+	q $zstrip(tgtDir,">","\")_"\"_$$$FormatText("UnitTestReslt_%1_%2.%3",logInx,$tr($zdt($h,3,1)," :-","_"), ext)
+}
+
+ClassMethod getHTML1() As %String [ CodeMode = expression ]
+{
+"<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><meta name='theme-color' content='#000000'><meta name='description' content='List of %UnitTest results'><style>"
+}
+
+ClassMethod getHTML2() As %String [ CodeMode = expression ]
+{
+"</style><script>"
+}
+
+ClassMethod getHTML3() As %String [ CodeMode = expression ]
+{
+"</script><title>UnitTest</title><noscript>You need to enable JavaScript to run this app.</noscript><div id='main'><header><div class='c_header_title'><div class='c_header_icon'></div><div id='header_title_name'>Unit Test Result (LogIndex=<span id='logIdx'>4</span>)</div></div><div class='c_header_sub'><div class='c_header_sub_title'>サーバ:</div><div id='machine'></div><div class='c_header_sub_title'>ネームスペース:</div><div id='nameSpace'></div><div class='c_header_sub_title'>インスタンス:</div><div id='configuration'></div><div class='c_header_sub_title'>バージョン:</div><div id='version'></div><div class='c_header_sub_title'>実行日時:</div><div id='time'></div></div></header><div id='body'><section id='test_result'></section></div></div></body></html>"
+}
+
+ClassMethod getCSS() As %String [ CodeMode = expression ]
+{
+"*,*:before,*:after{-webkit-box-sizing:inherit;box-sizing:inherit}html,body{margin:0;padding:0;height:100%;-webkit-box-sizing:border-box;box-sizing:border-box;font-size:62.5%;background-color:#edf3fa}#main{height:100%;padding:5px 20px 5px 20px}header{width:100%;color:#000;padding:10px 20px 5px 20px;border-radius:15px;height:86px}.c_header_title{display:flex;align-items:flex-end;justify-content:center}.c_header_icon{background-color:#3c4e9c;width:14px;height:14px;margin:auto 15px;border-radius:3px}#header_title_name{font-size:5.3em;color:#3c4e9c}.c_header_time{display:flex;font-size:2.5em;padding-left:30px}.c_header_sub{display:flex;flex-wrap:wrap;padding:10px 10px;font-size:2em;justify-content:center}.c_header_sub_title{padding:0 10px 0 40px}.c_header_sub_title:first-child{padding:0 10px 0 0}#body{margin-top:10px;padding:20px 20px;background-color:#FFF;border-radius:15px;height:calc(100% - 96px)}#test_result{overflow:auto;height:calc(100%)}table{border-spacing:0;border-collapse:collapse;font-size:2.5em;width:100%}table tr th{background-color:#3c4e9c;color:#FFF;padding:5px 0;position:-webkit-sticky;position:sticky;top:0;z-index:2}table tr th:first-child{border-left:1px solid rgb(176,196,255)}table tr th:before{content:'';position:absolute;border-top:1px solid rgb(176,196,255);border-left:1px solid rgb(176,196,255);top:0;left:0;width:100%;height:100%}table tr th:last-child:before{border-right:1px solid rgb(176,196,255)}table tr th:first-child:before{border-left:none}table tbody{overflow:auto}table tr td{vertical-align:top;border:1px solid rgb(176,196,255)}.c_test_td{text-align:left;padding:5px 10px}.c_test_time{padding:5px 10px;text-align:left}.c_test_Status{width:100px;padding:5px 0;text-align:center}.c_test_rows{width:60px;padding:5px 5px 5px 0;text-align:right}.c_test_action{width:172px;padding:5px 10px}.c_passed{color:#005a08;font-weight:700}.c_skip{color:#0004ff;font-weight:700}.c_failed{color:red;font-weight:700}.c_even{background-color:#fff}.c_odd{background-color:#edf3fa}.c_icon{width:20px;height:18px;opacity:1;margin-top:2px}.c_icon_display{display:none}.c_icon_d{fill:#4B4B4B;cursor:pointer}"
+}
+
+ClassMethod getJS1() As %String [ CodeMode = expression ]
+{
+"let pOddCnt=0;const pMaxRow=50;let pRowCnt=0;let pTbody;let lstTr;let timeObj;"
+}
+
+ClassMethod getJS2() As %String [ CodeMode = expression ]
+{
+"window.onload=(e)=>{drawing();const dom=document.getElementById('test_result');pTbody=dom.getElementsByTagName('tbody')[0];lstTr=pTbody.getElementsByTagName('tr');dom.addEventListener('scroll',e=>{if(timeObj)clearTimeout(timeObj);if(data.testSuite.length!=0){timeObj=setTimeout(()=>{const bottom=dom.scrollTop+dom.clientHeight;const top=lstTr[lstTr.length-1].offsetTop-dom.offsetTop;if(top<bottom){console.log('action!!');addTBody(data.testSuite,pTbody);lstTr=pTbody.getElementsByTagName('tr')}},50)}})};function drawing(){setItem('machine',data);setItem('configuration',data);setItem('nameSpace',data);setItem('version',data);setItem('time',data);setItem('logIdx',data);const sec=document.getElementById('test_result');while(sec.firstChild)sec.removeChild(sec.firstChild);drawSuite(sec,data.testSuite)} function setItem(_keyNm,_data){const div=document.getElementById(_keyNm);div.textContent=_data[_keyNm]} function drawSuite(_dom,_data){const tblEml=document.createElement('table');_dom.appendChild(tblEml);createTHeader(tblEml);const tbodyElm=document.createElement('tbody');addTBody(_data,tbodyElm);tblEml.appendChild(tbodyElm)} function createTHeader(_tblElm){const theadElm=_tblElm.createTHead();const trElm=theadElm.insertRow();const items=['Suite','クラス名','関数名','処理時間','ステータス','行数','コマンド名','コメント'];for(const item of items){const thElm=document.createElement('th');thElm.classList.add('c_test_th');thElm.appendChild(document.createTextNode(item));trElm.appendChild(thElm)}} function addTBody(_data,_tbodyElm){pRowCnt=0;let suiteCnt=0;for(const suite of _data){suiteCnt++;if(suiteCnt<pOddCnt)continue;let caseLen=0;for(const tCase of suite.testCase){for(const method of tCase.testMethod){caseLen+=method.testAsserts.length-1}} let caseCnt=0;for(const tCase of suite.testCase){caseCnt++;let methodlen=0;for(const method of tCase.testMethod){methodlen+=method.testAsserts.length-1} let methodCnt=0;for(const method of tCase.testMethod){methodCnt++;const len=method.testAsserts.length;let cnt=0;for(const asserts of method.testAsserts){cnt++;if(cnt===len)break;const trElm=document.createElement('tr');pRowCnt++;if(cnt===1){if(methodCnt===1){if(caseCnt===1){pOddCnt++;trElm.appendChild(getSpanTdElm('c_test_td',caseLen,suite.name))} trElm.appendChild(getSpanTdElm('c_test_td',methodlen,tCase.name))} trElm.appendChild(getSpanTdElm('c_test_td',(len-1),method.name));trElm.appendChild(getTimeElm(method,(len-1)))} trElm.classList.add((pOddCnt%2===1)?'c_even':'c_odd');trElm.appendChild(getTdElm('c_test_Status',asserts.status,asserts.status));trElm.appendChild(getTdElm('c_test_rows',asserts.status,asserts.location.split('^')[0].split('+')[1]));trElm.appendChild(getTdElm('c_test_action',asserts.status,asserts.action));trElm.appendChild(getTdElm('c_test_td',asserts.status,asserts.discription));_tbodyElm.appendChild(trElm)}}} if(pRowCnt>pMaxRow)break}} function getTimeElm(_obj,_rowspan){const tdElm=document.createElement('td');tdElm.classList.add('c_test_time');tdElm.setAttribute('rowspan',_rowspan);tdElm.appendChild(document.createTextNode(_obj.time));if(_obj.status==='timeout'){tdElm.classList.add('c_failed');tdElm.appendChild(document.createElement('br'));tdElm.appendChild(document.createTextNode('('+_obj.discription+')'))} return tdElm} function getSpanTdElm(_clsNm,_rowspan,_value){const tdElm=document.createElement('td');tdElm.appendChild(document.createTextNode(_value));tdElm.classList.add(_clsNm);tdElm.setAttribute('rowspan',_rowspan);return tdElm} function getTdElm(_clsNm,_status,_value){const tdElm=document.createElement('td');if(_clsNm==='c_test_Status'){tdElm.classList.add(_clsNm,'c_'+_status)}else{tdElm.classList.add(_clsNm);if(_status!=='passed')tdElm.classList.add('c_'+_status)} tdElm.appendChild(document.createTextNode(_value));return tdElm}"
+}
+
+/// 結果表示用のcsvファイル作成 : 2024/09/20 14:32 : Creater Name<br/>
+/// Parameters:<br>
+/// <ul>
+///  <li>obj: <class>%DynamicObject</class></li>
+///  <li>dir: <class>%String</class> (初期値："")</li>
+///  <li>filePath: <class>%String</class></li>
+/// </ul>
+/// Returns: <br>
+///  <class>%Status</class>
+ClassMethod csv(obj As %DynamicObject, dir As %String = "", ByRef filePath As %String) As %Status
+{
+	s sts = $$$OK
+	try {
+		s filePath = ..getFileName(dir, obj.logIdx, "csv")
+		//$$$TRACE("CSVファイルパス:"_filePath)
+
+		s fileObj = ##class(%File).%New(filePath)
+		$$$ThrowOnError( fileObj.Open("WSNK\SJIS\",3) )
+
+		d fileObj.WriteLine("Suite,クラス名,関数名,処理時間,中央値,ステータス,行数,コマンド名,コメント")
+
+		// TestSuite
+		s suiteItr = obj.testSuite.%GetIterator()
+		while suiteItr.%GetNext(.suiteKey, .suite) {
+			s caseItr = suite.testCase.%GetIterator()
+
+			// TestCase
+			while caseItr.%GetNext(.caseKey, .case) {
+				s methodItr = case.testMethod.%GetIterator()
+
+				// TestMethod
+				while methodItr.%GetNext(.mthodKey, .method) {
+					s assertsItr = method.testAsserts.%GetIterator()
+
+					// TestAsserts
+					while assertsItr.%GetNext(.assertsKey, .asserts) {
+						continue:(asserts.location = "")
+						
+						s line = suite.name_","_
+								case.name_","_
+								method.name_","_
+								method.time_","_
+								$s(method.status="timeout":$$$FormatText("(%1)",method.discription), 1:"")_","_
+								asserts.status_","_
+								$p($p(asserts.location, "+", 2), "^", 1)_","_
+								asserts.discription
+
+						d fileObj.WriteLine(line)
+					}
+				}
+			}
+		}
+
+		d fileObj.Close()
+	}catch e {
+		s sts = e.AsStatus()
+	}
+	q sts
+}
+
+}

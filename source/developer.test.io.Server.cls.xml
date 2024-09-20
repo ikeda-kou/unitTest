@@ -1,0 +1,42 @@
+/// <b> [Rest API] サービスキック用 </b> : 2024/09/20 15:05 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.Server Extends %CSP.REST
+{
+
+Parameter UseSession As Integer = 0;
+
+Parameter CHARSET = "utf-8";
+
+Parameter CONTENTTYPE = "application/json";
+
+Parameter CONVERTINPUTSTREAM = 1;
+
+Parameter HandleCorsRequest = 1;
+
+XData UrlMap
+{
+<Routes>
+	<Route Url="/test/" Method="GET" Call="UnitTest"/>
+   </Routes>
+}
+
+ClassMethod UnitTest() As %Status
+{
+	#dim %request As %CSP.Request
+
+	try {
+		// サービスをキックする
+		$$$ThrowOnError( ##class(Ens.Director).CreateBusinessService("ServiceRest", .bs) )
+
+		s req = ##class(Ens.Request).%New()
+		$$$ThrowOnError(bs.ProcessInput(req))
+	}catch e {
+	}
+
+	s dt={"test": "GO"}
+	w dt.%ToJSON()
+	q $$$OK
+}
+
+}

@@ -1,0 +1,43 @@
+/// <b> [サービス]　タイマー実行用 </b> : 2024/09/20 15:08 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.ServiceTimer Extends Ens.BusinessService
+{
+
+Parameter ADAPTER = "Ens.InboundAdapter";
+
+Property Target As %String(MAXLEN = 255);
+
+/// SETTINGSパラメータ
+Parameter SETTINGS = "Target:追加の設定:selector?context={Ens.ContextSearch/ProductionItems?targets=1&productionName=@productionId}";
+
+Method OnProcessInput(pInput As Ens.StringContainer) As %Status
+{
+	s sts = $$$OK
+	try {
+		$$$LOGINFO("開始日時:"_$zdt($h,3))
+
+		i ($d(^UnitTest.import)){
+			$$$LOGINFO("実行中待機:"_$zdt($h,3))
+		
+		}else{
+			i ($d(^UnitTest.wait)){
+				s ^UnitTest.import = 1
+				k ^UnitTest.wait
+				
+				// Git更新とテスト実施
+				s req = ##class(Ens.Request).%New()
+				$$$ThrowOnError( ..SendRequestSync(..Target, req, .req) )
+				k ^UnitTest.import
+			}else{
+				$$$LOGINFO("待機:"_$zdt($h,3))
+			}
+		}
+		$$$LOGINFO("終了日時:"_$zdt($h,3))
+	} catch e {
+		s sts = e.AsStatus()
+	}
+	q sts
+}
+
+}

@@ -1,0 +1,85 @@
+/// <b> [Python]メール送付用 </b> : 2024/09/20 14:38 : Creater Name<br/>
+/// <br/>
+/// <span style='font-size: small'>Copyright &copy; 2020 default inc. All Rights Reserved.</span>
+Class developer.test.io.EmailPython Extends %RegisteredObject
+{
+
+Property SMTPServer As %String(MAXLEN = 100);
+
+Property SMTPPort As %Integer;
+
+Property SMTPPassword As %String;
+
+Property Cc As %String(MAXLEN = 2000);
+
+Property From As %String(MAXLEN = 200);
+
+Property To As %String(MAXLEN = 200);
+
+Property Title As %String(MAXLEN = 50);
+
+Property Message As %String(MAXLEN = "");
+
+Property FileList As %String(MAXLEN = "");
+
+/// 添付ファイル付きメール送信 : 2024/09/20 14:39 : Creater Name<br/>
+/// Returns: <br>
+///  <class>Language</class>
+Method SendMail() [ Language = python ]
+{
+	import smtplib
+	from email.mime.text import MIMEText
+	from email.mime.multipart import MIMEMultipart
+	from email.mime.application import MIMEApplication
+	from pathlib import Path
+	import os
+
+	ret = ''
+	try:
+		# MIME 
+		msg = MIMEMultipart()
+		msg['Subject'] = self.Title
+		msg['To'] = self.To
+		msg['From'] = self.From
+		msg['cc'] = self.Cc
+		msg.attach(MIMEText(self.Message))
+
+		# ファイルの添付
+		if self.FileList != "":
+			files = self.FileList.split(',')
+			for filepath in files:
+				# 添付ファイル
+				filename = os.path.basename(filepath)
+
+				# ファイル読込
+				with open(filepath, 'rb') as f:
+					attach = MIMEApplication(f.read())
+		
+				# ファイル添付
+				attach.add_header('Content-Disposition', 'attachment', filename=filename)
+				msg.attach(attach)
+
+
+		# サーバを指定してメールを送信する
+		server = smtplib.SMTP(self.SMTPServer, self.SMTPPort)
+
+		#サーバー・ポート接続
+		server.ehlo()
+
+		# TLS暗号化
+		server.starttls()
+
+		# SMTPサーバーログイン
+		server.login(self.From, self.SMTPPassword)
+
+		server.send_message(msg)
+		#; #SMTPサーバー遮断
+		server.quit()
+
+	except Exception as e:
+		ret - repr(e)
+
+	return ret
+}
+
+}
